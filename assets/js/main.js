@@ -1,121 +1,62 @@
-import { projetos } from "./projetos.js";
+(() => {
+  'use strict';
+  const root = document.documentElement;
+  const header = document.getElementById('site-header');
+  const menuButton = document.getElementById('menu-toggle');
+  const nav = document.getElementById('primary-nav');
+  const themeButton = document.getElementById('theme-toggle');
+  const backToTop = document.getElementById('back-to-top');
+  const year = document.getElementById('year');
+  if (year) year.textContent = new Date().getFullYear();
 
-const navigation = document.querySelector("#navigation");
-const backToTopButton = document.querySelector("#backToTopButton");
-const toggle = document.querySelector("#sw-checkbox");
-const projectsSection = document.querySelector("#projects .wrapper");
-
-const notebook_1 = document.querySelector("#notebook-1");
-const notebook_2 = document.querySelector("#notebook-2");
-const notebook_2_white = document.querySelector("#notebook-2-white");
-const vidro = document.querySelector("#vidro");
-
-window.addEventListener("load", function begin() {
-  projetos(projectsSection);
-  const desafioBtn = document.querySelector("#desafio");
-});
-
-window.addEventListener("scroll", onScroll);
-onScroll();
-
-window.onload = setTimeout(() => {
-  notebook_1.style.opacity = 0;
-
-  notebook_1.style.animation = "none";
-  notebook_2.style.animation = "none";
-  notebook_2_white.style.animation = "none";
-  vidro.style.animation = "none";
-}, 4000);
-
-function onScroll() {
-  showNavOnScroll();
-  showBackToTopButtonOnScroll();
-
-  activateMenuAtCurrentSection(about);
-  activateMenuAtCurrentSection(projects);
-  activateMenuAtCurrentSection(knowledge);
-  activateMenuAtCurrentSection(contact);
-}
-
-function activateMenuAtCurrentSection(section) {
-  const targetLine = scrollY + innerHeight / 2;
-  const sectionTop = section.offsetTop;
-  const sectionHeight = section.offsetHeight;
-
-  const sectionTopReachOrPassedTargetLine = targetLine >= sectionTop;
-  const sectionEndsAt = sectionTop + sectionHeight;
-  const sectionEndPassedTargetLine = sectionEndsAt <= targetLine;
-
-  const sectionBoundaries =
-    sectionTopReachOrPassedTargetLine && !sectionEndPassedTargetLine;
-
-  const sectionId = section.getAttribute("id");
-  const menuElement = document.querySelector(`.menu a[href*=${sectionId}]`);
-
-  menuElement.classList.remove("active");
-
-  if (sectionBoundaries) {
-    menuElement.classList.add("active");
+  function setTheme(theme) {
+    root.dataset.theme = theme;
+    themeButton.setAttribute('aria-pressed', String(theme === 'light'));
+    themeButton.setAttribute('aria-label', theme === 'light' ? 'Ativar tema escuro' : 'Ativar tema claro');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f5f7f5' : '#0c1420');
+    try { localStorage.setItem('dm-portfolio-theme', theme); } catch (e) { /* navegador sem armazenamento */ }
   }
-}
+  let preferredTheme = 'dark';
+  try { preferredTheme = localStorage.getItem('dm-portfolio-theme') || 'dark'; } catch (e) { /* sem armazenamento */ }
+  setTheme(preferredTheme === 'light' ? 'light' : 'dark');
+  themeButton.addEventListener('click', () => setTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'));
 
-function showNavOnScroll() {
-  if (scrollY > 0) {
-    navigation.classList.add("scroll");
-  } else {
-    navigation.classList.remove("scroll");
+  function setMenu(open) {
+    const isOpen = Boolean(open);
+    nav.classList.toggle('is-open', isOpen);
+    menuButton.classList.toggle('is-open', isOpen);
+    menuButton.setAttribute('aria-expanded', String(isOpen));
+    menuButton.setAttribute('aria-label', isOpen ? 'Fechar menu' : 'Abrir menu');
+    document.body.classList.toggle('menu-open', isOpen);
   }
-}
+  menuButton.addEventListener('click', () => setMenu(menuButton.getAttribute('aria-expanded') !== 'true'));
+  nav.querySelectorAll('a').forEach(link => link.addEventListener('click', () => setMenu(false)));
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setMenu(false); });
+  document.addEventListener('click', (event) => { if (!header.contains(event.target)) setMenu(false); });
+  window.addEventListener('resize', () => { if (window.innerWidth > 900) setMenu(false); });
 
-function showBackToTopButtonOnScroll() {
-  if (scrollY > 550) {
-    backToTopButton.classList.add("show");
-  } else {
-    backToTopButton.classList.remove("show");
+  function updateScroll() {
+    const scrolled = window.scrollY > 24;
+    header.classList.toggle('scrolled', scrolled);
+    backToTop.classList.toggle('is-visible', window.scrollY > 650);
   }
-}
+  window.addEventListener('scroll', updateScroll, { passive: true });
+  updateScroll();
 
-openMenu();
-function openMenu() {
-  const openBtns = document.querySelectorAll(".open");
-  openBtns.forEach((e) => {
-    e.addEventListener("click", () => {
-      document.body.classList.add("menu-expanded");
-    });
-  });
-}
-
-closeMenu();
-function closeMenu() {
-  const closeBtns = document.querySelectorAll(".close");
-  closeBtns.forEach((e) => {
-    e.addEventListener("click", () => {
-      document.body.classList.remove("menu-expanded");
-    });
-  });
-}
-
-ScrollReveal({
-  origin: "bottom",
-  distance: "50px",
-  duration: 1000,
-}).reveal(
-  `#home, 
-  #home img, 
-  #about, 
-  #about header, 
-  #about p,
-  #about img,
-  #projects,
-  #projects header,
-  #projects .card,
-  #knowledge,
-  #knowledg header,
-  #knowledg .card,
-  #contact,
-  #contact header`
-);
-
-toggle.addEventListener("change", () => {
-  document.body.classList.toggle("light-mode");
-});
+  const sections = [...document.querySelectorAll('main section[id]')];
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          nav.querySelectorAll('a').forEach(link => {
+            const active = link.hash === '#' + entry.target.id;
+            link.classList.toggle('active', active);
+            if (active) link.setAttribute('aria-current', 'location');
+            else link.removeAttribute('aria-current');
+          });
+        }
+      });
+    }, { rootMargin: '-32% 0px -55% 0px' });
+    sections.forEach(section => observer.observe(section));
+  }
+})();
